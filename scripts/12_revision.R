@@ -4,6 +4,9 @@ library(tidyverse)
 library(purrr)
 library(RSQLite)
 library(ggthemes)
+library(gtools)
+library(data.table)
+library(patchwork)
 
 # This script creates the input data for the revision of the manuscript: Mixing tree species at different spatial scales: The buffering
 # effects of alpha, beta and gamma diversity against disturbances under climate change
@@ -131,8 +134,7 @@ master_revision <- bind_rows(master_age,
                 disturbances, 
                 replication, 
                 dist_impact, 
-                age_structure, 
-                ) %>%
+                age_structure) %>%
   arrange(., ruid, scenario, diversity)
 
 toc <- master_revision %>%
@@ -152,24 +154,24 @@ toc <- master_revision %>%
          run_id = 2520 + as.integer(1:nrow(.)))
 
 write_csv(toc, "revision/table_of_combinations_revision.csv")
-write_csv(toc, "../../materials/data_package_4.0/table_of_combinations_revision.csv")
+#write_csv(toc, "../../materials/data_package_4.0/table_of_combinations_revision.csv")
 
 
 # join species shares and inital age for experiment 1 and 3
 
-mastertable_org <- read_csv("initalization/mastertable.csv")
+mastertable_org <- read_csv("initalization/mastertable.csv") %>%
+  dplyr::select(-disturbances) %>%
+  distinct(.)
 
 
 revision <- master_revision %>%
   left_join(mastertable_org, by = c("landscape", 
                                     "ruid", 
-                                    "m.unit", 
-                                    "climate", 
+                                    "m.unit",  
                                     "scenario",
+                                    "climate",
                                     "diversity",
-                                    "disturbances",
                                     "replication"))
-
 
 
 # Experiment 1 - vary disturbance rotation period -------------------------
@@ -749,19 +751,20 @@ curve(dweibull(x, shape = 4, scale = 1), from = 0, to = 1)
 
 # generate 100 bins
 
-x <- dweibull((1:100)/100, shape = 4, scale = 1) + 0.35
+x <- dweibull((1:100)/100, shape = 4, scale = 1) + 0.35 
 
 x <- x/ sum(x)# sum = 1
+
 
 # sample from function, factor 1.5 scales to 150 years rotation period
 
 young_dischma <- inital %>%
   filter(landscape == "dischma", age_structure == "young") %>%
-  mutate(init.age = 151 - sample(x = 1:100, size = nrow(.), prob = x, replace = T)*1.5) 
+  mutate(init.age = 151 - sample(x = 1:100, size = nrow(.), prob = x, replace = T) * 1.5) 
 
 old_dischma <- inital %>%
   filter(landscape == "dischma", age_structure == "old") %>%
-  mutate(init.age = sample(x = 1:100, size = nrow(.), prob = x, replace = T)*1.5)
+  mutate(init.age = sample(x = 1:100, size = nrow(.), prob = x, replace = T)* 1.5)
 
 young_rosalia <- inital %>%
   filter(landscape == "rosalia", age_structure == "young") %>%
@@ -792,7 +795,6 @@ master_init_age <- bind_rows(young_dischma,
                                     "ruid", 
                                     "m.unit", 
                                     "climate",
-                                    "disturbances",
                                     "scenario",
                                     "diversity",
                                     "replication"))
@@ -820,7 +822,7 @@ test <- master_init_age %>%
 unique(test$rs)
 
 
-#final mastertable of revision
+# final mastertable of revision
 
 mastertable_revision <- revision %>%
   filter(age_structure == "normal") %>%
@@ -986,17 +988,32 @@ missing_old_trees <- initialization %>%
 initialization_full <- initialization %>%
   filter(! (is.na(stemnumber) & age > 50)) %>%
   bind_rows(missing_old_trees) %>%
-  arrange(., landscape, ruid, scenario)
+  arrange(., landscape, ruid, scenario) %>%
+  dplyr::select(landscape, 
+                ruid,
+                m.unit, 
+                scenario,
+                diversity,
+                age_structure,
+                age,
+                species,
+                share,
+                stemnumber,
+                dbhfrom,
+                dbhto,
+                hd,
+                height_class,
+                stem_number_reduced)
 
+write_csv(initialization_full, "revision/initialization_full_revision.csv")
+
+
+old <- read_csv("initalization/initialization_full.csv")
 # check how age class distribution looks without old missing trees
 
 ggplot(initialization_full, aes(x = age)) +
   geom_bar() +
   facet_grid(landscape ~ age_structure, scales = "free")
-
-ggplot(filter(plotdata, landscape == "dischma"), aes(x = age)) +
-  geom_bar() +
-  facet_grid(~ age_structure)
 
 
 # write initalization file for tim
@@ -1036,7 +1053,7 @@ init_files_iland <- initialization_full %>%
                                            hd, 
                                            height = height_class)), 
        ~ write_csv(.y, paste0("../../materials/", 
-                              unique(.x$landscape), 
+                              unique(toupper(.x$landscape)), 
                               "/init/init_files/revision/", 
                               unique(.x$landscape), "_", 
                               unique(.x$age_structure), "_",
@@ -1065,7 +1082,7 @@ sapling_files_iland <- initialization_full %>%
                                            height_from, 
                                            height_to)), 
        ~ write_csv(.y, paste0("../../materials/", 
-                              unique(.x$landscape), 
+                              unique(toupper(.x$landscape)), 
                               "/init/sapling_lists/final_simulations/revision/", 
                               unique(.x$landscape), "_", 
                               unique(.x$age_structure), "_",
@@ -1199,7 +1216,7 @@ management_files_iland <- management %>%
                                            year = sim_year,
                                            abal:tico)), 
        ~ write_csv(.y, paste0("../../materials/", 
-                              unique(.x$landscape), 
+                              unique(toupper(.x$landscape)), 
                               "/scripts/management_files/revision/management_", 
                               unique(.x$landscape), "_", 
                               unique(.x$age_structure), "_",
@@ -1214,42 +1231,7 @@ management_files_iland <- management %>%
 
 # Experiment 3 - vary disturbance impact ----------------------------------
 
-height <- c(1:50)
-
-dbh <- seq(50, 50, length.out = 50)
-
-
-
-constant <- 3 # this constant value describes the topographic exposure of a given stand to 
-# wind disturbances (Topex to distance Index).
-# We decided for a value of 3 which correspondeds to a west exposed slope with 30 % 
-# gradient.
-# piab
-
-# pisy_lade
-
-logit_pisy_lade  <- -8.59 + log((dbh^(-1.625)) / ((height)^(-3.525))) + constant
-# logistic link function
-p_pisy_lade <- exp(logit_pisy_lade) / (exp(logit_pisy_lade) + 1)
-
-# data frame
-
-species_labels <- factor("pisy_lade", 
-                           labels = "Only height depended")
-
-p_dist <- data.frame(dbh = dbh,
-                     height = height,
-                     prob = p_pisy_lade) %>%
-  ggplot(., aes(x = height, y = prob)) +
-  geom_line() +
-  ylim(0, 1) +
-  labs(y = "probability of disturbance", col = "species group", x = "height [m]") +
-  theme_few()
-
-ggsave("../../results/figures/supplement/p_dist_revision.png", p_dist, width = 5, height = 3.5)
-
-
-
+# Here only the functions were changed directly in the two models
 
 # Batch file --------------------------------------------------------------
 
@@ -1274,7 +1256,7 @@ setup_rosa_1 <-  "$ILAND ROSALIA/xmls/FORMASAM_ROSALIA_"
 
 setup_rosa_2 <- ".xml $NYEARS system.database.in=$SPECIESPARAMS "
 
-output_rosa <- "system.database.out=revision/FORMASAM_ROSALIA_" 
+output_rosa <- "system.database.out=FORMASAM_ROSALIA_" 
 
 log_rosa <- " system.logging.logFile=../log/FORMASAM_ROSALIA_" 
 
@@ -1298,6 +1280,7 @@ batch_file_rosa_1 <- toc_rosa_1 %>%
                         "user.dist_scenario=", disturbances, " ",
                         "user.scenario=", scenario, " ",
                         "user.diversity=", diversity, " ",
+                        "user.age_structure=", age_structure, " ",
                         "user.run_id=", run_id, " "))
 
 
@@ -1315,7 +1298,7 @@ setup_rosa_1 <-  "$ILAND ROSALIA/xmls/FORMASAM_ROSALIA_"
 
 setup_rosa_2 <- ".xml $NYEARS system.database.in=$SPECIESPARAMS "
 
-output_rosa <- "system.database.out=revision/FORMASAM_ROSALIA_" 
+output_rosa <- "system.database.out=FORMASAM_ROSALIA_" 
 
 log_rosa <- " system.logging.logFile=../log/FORMASAM_ROSALIA_" 
 
@@ -1339,6 +1322,7 @@ batch_file_rosa_2 <- toc_rosa_2 %>%
                         "user.dist_scenario=", disturbances, " ",
                         "user.scenario=", scenario, " ",
                         "user.diversity=", diversity, " ",
+                        "user.age_structure=", age_structure, " ",
                         "user.run_id=", run_id, " "))
 
 
@@ -1357,7 +1341,7 @@ setup_rosa_1 <-  "$ILAND ROSALIA/xmls/FORMASAM_ROSALIA_"
 
 setup_rosa_2 <- ".xml $NYEARS system.database.in=$SPECIESPARAMS "
 
-output_rosa <- "system.database.out=revision/FORMASAM_ROSALIA_" 
+output_rosa <- "system.database.out=FORMASAM_ROSALIA_" 
 
 log_rosa <- " system.logging.logFile=../log/FORMASAM_ROSALIA_" 
 
@@ -1381,12 +1365,11 @@ batch_file_rosa_3 <- toc_rosa_3 %>%
                         "user.dist_scenario=", disturbances, " ",
                         "user.scenario=", scenario, " ",
                         "user.diversity=", diversity, " ",
+                        "user.age_structure=", age_structure, " ",
                         "user.run_id=", run_id, " "))
 
 
 batch_file_rosa_3$batch[1]
-
-
 
 # DISCHMA
 
@@ -1400,7 +1383,7 @@ setup_disch_1 <-  "$ILAND DISCHMA/xmls/FORMASAM_DISCHMA_"
 
 setup_disch_2 <- ".xml $NYEARS system.database.in=$SPECIESPARAMS "
 
-output_disch <- "system.database.out=revision/FORMASAM_DISCHMA_" 
+output_disch <- "system.database.out=FORMASAM_DISCHMA_" 
 
 log_disch <- " system.logging.logFile=../log/FORMASAM_DISCHMA_" 
 
@@ -1425,6 +1408,7 @@ batch_file_disch_1 <- toc_disch_1 %>%
                         "user.dist_scenario=", disturbances, " ",
                         "user.scenario=", scenario, " ",
                         "user.diversity=", diversity, " ",
+                        "user.age_structure=", age_structure, " ",
                         "user.run_id=", run_id, " "))
 
 
@@ -1442,7 +1426,7 @@ setup_disch_1 <-  "$ILAND DISCHMA/xmls/FORMASAM_DISCHMA_"
 
 setup_disch_2 <- ".xml $NYEARS system.database.in=$SPECIESPARAMS "
 
-output_disch <- "system.database.out=revision/FORMASAM_DISCHMA_" 
+output_disch <- "system.database.out=FORMASAM_DISCHMA_" 
 
 log_disch <- " system.logging.logFile=../log/FORMASAM_DISCHMA_" 
 
@@ -1467,6 +1451,7 @@ batch_file_disch_2 <- toc_disch_2 %>%
                         "user.dist_scenario=", disturbances, " ",
                         "user.scenario=", scenario, " ",
                         "user.diversity=", diversity, " ",
+                        "user.age_structure=", age_structure, " ",
                         "user.run_id=", run_id, " "))
 
 
@@ -1483,7 +1468,7 @@ setup_disch_1 <-  "$ILAND DISCHMA/xmls/FORMASAM_DISCHMA_"
 
 setup_disch_2 <- ".xml $NYEARS system.database.in=$SPECIESPARAMS "
 
-output_disch <- "system.database.out=revision/FORMASAM_DISCHMA_" 
+output_disch <- "system.database.out=FORMASAM_DISCHMA_" 
 
 log_disch <- " system.logging.logFile=../log/FORMASAM_DISCHMA_" 
 
@@ -1508,6 +1493,7 @@ batch_file_disch_3 <- toc_disch_3 %>%
                         "user.dist_scenario=", disturbances, " ",
                         "user.scenario=", scenario, " ",
                         "user.diversity=", diversity, " ",
+                        "user.age_structure=", age_structure, " ",
                         "user.run_id=", run_id, " "))
 
 
@@ -1541,105 +1527,290 @@ batch_file_disch <- bind_rows(batch_file_disch_1,
               col.names = FALSE)
 
 
+# data processing revision ------------------------------------------------
 
-# # batch file for simulations that did not finish --------------------------
-# 
-# toc <- read_csv("batch_file/table_of_combinations.csv")
-# 
-# error_dischma <- read.table("../../materials/DISCHMA/log/errorfiles.txt", header = FALSE) %>%
-#   separate(V1, c("one", "two", "run"), "_" ) %>%
-#   separate(run, c("run_id", "txt")) %>%
-#   mutate(run_id = as.integer(run_id))
-# 
-# error_rosalia <- read.table("../../materials/ROSALIA/log/errorfiles.txt", header = FALSE) %>%
-#   separate(V1, c("one", "two", "run"), "_" ) %>%
-#   separate(run, c("run_id", "txt")) %>%
-#   mutate(run_id = as.integer(run_id))
-# 
-# 
-# toc_error_disch <- filter(toc, run_id %in% error_dischma$run_id)
-# 
-# toc_error_rosa <- filter(toc, run_id %in% error_rosalia$run_id)
-# 
-# 
-# # ROSALIA
-# 
-# 
-# setup_rosa_1 <-  "$ILAND ROSALIA/xmls/FORMASAM_ROSALIA_"
-# 
-# setup_rosa_2 <- ".xml $NYEARS system.database.in=$SPECIESPARAMS "
-# 
-# output_rosa <- "system.database.out=FORMASAM_ROSALIA_" 
-# 
-# log_rosa <- " system.logging.logFile=../log/FORMASAM_ROSALIA_" 
-# 
-# sapling <- " model.initialization.saplingFile=../init/sapling_lists/final_simulations/"
-# 
-# init <- "model.initialization.file=../init/init_files/"
-# 
-# 
-# 
-# batch_file_rosa_error <- toc_error_rosa %>%
-#   rowwise(.) %>%
-#   mutate(batch = paste0(setup_rosa_1,
-#                         climate,
-#                         setup_rosa_2,
-#                         output_rosa, run_id, ".sqlite", 
-#                         log_rosa, run_id, ".txt",
-#                         sapling, paste(landscape, scenario, diversity, sep = "_"), ".csv ", 
-#                         init, paste(landscape, scenario, diversity, sep = "_"), ".csv ",
-#                         "user.replication=", replication, " ",
-#                         "user.dist_scenario=", disturbances, " ",
-#                         "user.scenario=", scenario, " ",
-#                         "user.diversity=", diversity, " ",
-#                         "user.run_id=", run_id, " "))
-# 
-# batch_file_rosa_error %>%
-#   dplyr::select(batch) %>%
-#   write.table(., "../../methods/r/batch_file/batch_rosa_error.txt",
-#               row.names = FALSE,
-#               quote = FALSE,
-#               col.names = FALSE)
-# 
-# 
-# # DISCHMA
-# 
-# 
-# setup_disch_1 <-  "$ILAND DISCHMA/xmls/FORMASAM_DISCHMA_"
-# 
-# setup_disch_2 <- ".xml $NYEARS system.database.in=$SPECIESPARAMS "
-# 
-# output_disch <- "system.database.out=FORMASAM_DISCHMA_" 
-# 
-# log_disch <- " system.logging.logFile=../log/FORMASAM_DISCHMA_" 
-# 
-# sapling <- " model.initialization.saplingFile=../init/sapling_lists/final_simulations/"
-# 
-# init <- "model.initialization.file=../init/init_files/"
-# 
-# 
-# 
-# batch_file_disch_error <- toc_error_disch %>%
-#   rowwise(.) %>%
-#   mutate(batch = paste0(setup_disch_1,
-#                         climate,
-#                         setup_disch_2,
-#                         output_disch, run_id, ".sqlite", 
-#                         log_disch, run_id, ".txt",
-#                         sapling, paste(landscape, scenario, diversity, sep = "_"), ".csv ", 
-#                         init, paste(landscape, scenario, diversity, sep = "_"), ".csv ",
-#                         "user.replication=", replication, " ",
-#                         "user.dist_scenario=", disturbances, " ",
-#                         "user.scenario=", scenario, " ",
-#                         "user.diversity=", diversity, " ",
-#                         "user.run_id=", run_id, " "))
-# 
-# batch_file_disch_error %>%
-#   dplyr::select(batch) %>%
-#   write.table(., "../../methods/r/batch_file/batch_disch_error.txt",
-#               row.names = FALSE,
-#               quote = FALSE,
-#               col.names = FALSE)
-# 
+### This script analyzes the results of the first FORMASAM test run
+
+library(RSQLite)
+library(tidyverse)
+library(data.table)
+library(patchwork)
+library(ggthemes)
+library(gtools)
+library(tictoc)
+
+
+# ILAND -------------------------------------------------------------------
+
+# load toc
+
+toc <- read.csv("revision/table_of_combinations_revision.csv")
+
+
+# Bring iLand output in FORMASAM format -----------------------------------
+
+# rosalia
+
+toc_rosalia <- filter(toc, landscape == "rosalia") 
+
+output_rosa <- list()
+
+#runid <- 3452
+
+for (runid in toc_rosalia$run_id) {
+  
+  
+  db.conn <- dbConnect(SQLite(), dbname = paste0("../../materials/ROSALIA/output/final_simulations/revision/FORMASAM_ROSALIA_", runid , ".sqlite", 
+                                                 collapse = "")) 
+  dyn.stand <- dbReadTable(db.conn, "dynamicstand")
+  dyn.stand$run_id <- runid
+  dbDisconnect(db.conn)
+  
+  
+  output_rosa[[runid]] <- dyn.stand
+  
+  print(runid)
+}
+
+
+output_rosalia_iland <- output_rosa %>%
+  bind_rows() %>%
+  mutate(model = "ILAND",
+         AGB = rowSums(dplyr::select(.,
+                                     stemmass_sum,
+                                     foliagemass_sum,
+                                     branchmass_sum))) %>%
+  rename(big_trees = if_dbh_30_1_0_sum,
+         ruid = rid) %>%
+  left_join(toc_rosalia) %>%
+  dplyr::select(landscape,
+                model,
+                ruid,
+                year,
+                species,
+                climate,
+                scenario,
+                diversity,
+                disturbances,
+                dist_impact,
+                age_structure,
+                experiment,
+                run_id,
+                replication,
+                AGB,
+                big_trees)
+
+
+write_csv(output_rosalia_iland, "final_simulations/iland_output/rosalia/output_rosalia_iland_revision.csv")
+
+rm(runid)
+
+
+
+# dischma
+
+toc_dischma <- filter(toc, landscape == "dischma") 
+
+output_disch <- list()
+
+#runid <- 1
+
+for (runid in toc_dischma$run_id) {
+  
+  
+  db.conn <- dbConnect(SQLite(), dbname = paste0("../../materials/DISCHMA/output/final_simulations/revision/FORMASAM_DISCHMA_", runid , ".sqlite", 
+                                                 collapse = "")) 
+  dyn.stand <- dbReadTable(db.conn, "dynamicstand")
+  dyn.stand$run_id <- runid
+  dbDisconnect(db.conn)
+  
+  output_disch[[runid]] <- dyn.stand
+  
+  print(runid)
+  
+}
+
+rm(runid)
+
+rstudioapi::documentSave()
+
+output_dischma_iland <- output_disch %>%
+  bind_rows() %>%
+  mutate(model = "ILAND",
+         AGB = rowSums(dplyr::select(.,
+                                     stemmass_sum,
+                                     foliagemass_sum,
+                                     branchmass_sum))) %>%
+  rename(big_trees = if_dbh_30_1_0_sum,
+         ruid = rid) %>%
+  left_join(toc_dischma) %>%
+  dplyr::select(landscape,
+                model,
+                ruid,
+                year,
+                species,
+                climate,
+                scenario,
+                diversity,
+                disturbances,
+                dist_impact,
+                age_structure,
+                experiment,
+                run_id,
+                replication,
+                AGB,
+                big_trees)
+
+
+rstudioapi::documentSave()
+
+write_csv(output_dischma_iland, "final_simulations/iland_output/dischma/output_dischma_iland_revision.csv")
+
+
+
+# LANDCLIM ----------------------------------------------------------------
+
+toc <- read_csv("revision/table_of_combinations_revision.csv")
+
+# create one big output table per landscape
+
+# rosalia
+
+out_rosa <- list.files("final_simulations/landclim_output/rosalia/raw_output_revision/", pattern = "*.csv") %>%
+  mixedsort(.)
+
+output_rosa_lanclim <- lapply(paste0("final_simulations/landclim_output/rosalia/raw_output_revision/", out_rosa), read_csv) %>%
+  set_names(3321:4120) %>% # change once missing files arrive
+  bind_rows(.id = "run_id") %>%
+  setDT(.)
+
+output_rosa_lanclim_j <- output_rosa_lanclim %>%
+  mutate(run_id = as.integer(run_id)) %>%
+  separate(scenario, c("scenario", "diversity"), extra = "merge") %>%
+  left_join(toc)
+
+head(output_rosa_lanclim_j)
+
+write_csv(output_rosa_lanclim_j, "final_simulations/landclim_output/rosalia/output_rosalia_landclim_revision.csv")
+
+# dischma
+
+out_disch <- list.files("final_simulations/landclim_output/dischma/raw_output_revision/", pattern = "*.csv") %>%
+  mixedsort(.)
+
+output_disch_lanclim <- lapply(paste0("final_simulations/landclim_output/dischma/raw_output_revision/", out_disch), read_csv) %>%
+  set_names(2521:3320) %>%
+  bind_rows(.id = "run_id") %>%
+  setDT(.)
+
+output_disch_lanclim_j <- output_disch_lanclim %>%
+  separate(scenario, c("scenario", "diversity"), extra = "merge") %>%
+  mutate(run_id = as.integer(run_id)) %>%
+  left_join(toc)
+
+write_csv(output_disch_lanclim_j, "final_simulations/landclim_output/dischma/output_dischma_landclim_revision.csv")
+
+# AGGREGATE OUTPUT --------------------------------------------------------
+
+# landclim
+
+# create landscape output landclim ----------------------------------------------------------
+
+output_dischma_landclim <- read_csv("final_simulations/landclim_output/dischma/output_dischma_landclim_revision.csv")
+
+output_rosalia_landclim <- read_csv("final_simulations/landclim_output/rosalia/output_rosalia_landclim_revision.csv")
+
+output_landclim <- bind_rows(output_dischma_landclim, output_rosalia_landclim)
+
+landscape_landclim <- output_landclim %>%
+  group_by(model, 
+           landscape, 
+           climate, 
+           year, 
+           species,
+           disturbances,
+           age_structure,
+           dist_impact,
+           experiment,
+           replication,
+           diversity, 
+           scenario) %>%
+  summarize(AGB = sum(AGB, na.rm = TRUE)) %>%
+  ungroup(.) %>%
+  as.data.frame(.)
+
+
+summary(landscape_landclim)
+
+
+write_csv(landscape_landclim, "final_simulations/landclim_output/output_aggregated/landscape_landclim_revision.csv")
+
+# something is not working in the case_when function of the "big_trees_ha" column  so I do the calculation by hand
+
+landscape_landclim_ha <- read.csv("final_simulations/landclim_output/output_aggregated/landscape_landclim_revision.csv")
+
+summary(landscape_landclim_ha)
+
+landscape_landclim_ha_rosa <- filter(landscape_landclim_ha, landscape == "rosalia") %>%
+  mutate(AGB_t_ha = AGB / 1222000,
+         big_trees_ha = big_trees / 1222)
+
+landscape_landclim_ha_disch <- filter(landscape_landclim_ha, landscape == "dischma") %>%
+  mutate(AGB_t_ha = AGB / 923000,
+         big_trees_ha = big_trees / 923)
+
+
+landscape_landclim_ha <- bind_rows(landscape_landclim_ha_disch, landscape_landclim_ha_rosa)
+
+summary(landscape_landclim_ha)
+
+write_csv(landscape_landclim_ha, "final_simulations/landclim_output/output_aggregated/landscape_landclim_ha_revision.csv")
+
+test <- read.csv("final_simulations/landclim_output/output_aggregated/landscape_landclim_ha_revision.csv")
+
+summary(test)
+
+# ...now I found out that  that the bug comes from the read_csv() function...
+
+
+# iland
+
+# create landscape output iland ----------------------------------------------------------
+
+output_dischma_iland <- read_csv("final_simulations/iland_output/dischma/output_dischma_iland_revision.csv")
+
+output_rosalia_iland <- read_csv("final_simulations/iland_output/rosalia/output_rosalia_iland_revision.csv")
+
+output_iland <- bind_rows(output_dischma_iland, output_rosalia_iland)
+
+
+landscape_output <- output_iland %>%
+  filter(year != 0) %>%
+  group_by(model, 
+           landscape, 
+           climate, 
+           year, 
+           species,
+           disturbances,
+           replication,
+           diversity, 
+           scenario,
+           dist_impact,
+           experiment,
+           age_structure) %>%
+  summarize(AGB = sum(AGB, na.rm = TRUE),
+            big_trees = sum(big_trees, na.rm = TRUE)) %>%
+  mutate(AGB_t_ha = case_when(landscape == "rosalia" ~ AGB/1222000,
+                              landscape == "dischma" ~ AGB/923000),
+         big_trees_ha = case_when(landscape == "rosalia" ~ big_trees/1222,
+                                  landscape == "dischma" ~ big_trees/923)) %>%
+  ungroup(.)
+
+summary(landscape_output)
+
+write_csv(landscape_output, "final_simulations/iland_output/output_aggregated/landscape_iland_revision.csv")
+
+
+
 
 
