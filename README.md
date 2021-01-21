@@ -9,3 +9,4 @@ The data that is necessary to execute script 10_analysis.R and 11_revision.R can
 uploaded to the github repository since file sizes are to large. However, the data can be provided upon request.
 
 All figures and tables of the manuscript and the supplementary information of the manuscript can be found in the folder "results".
+
