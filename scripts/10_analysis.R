@@ -1,19 +1,10 @@
 # This script builds a model to quantify the effects of different mixtures and levels
 # of species diversity on the resistance against natural disturbances
 
-library(tidyverse)
-library(lme4)
-library(effects)
-library(ggthemes)
-library(MuMIn)
-library(DHARMa)
-library(emmeans)
-library(ggrepel)
-library(merTools)
-library(patchwork)
-library(vegan)
-library(ggridges)
-library(hexbin)
+library(tidyverse) # version 1.3.0
+library(patchwork) # version 1.0.1
+library(ggthemes) # version 4.2.0
+library(ggrepel) # version 0.3.2
 
 
 # Figure 3 realized diversity ------------------------------------------------------

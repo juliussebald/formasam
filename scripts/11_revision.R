@@ -1,12 +1,15 @@
-library(raster)
-library(sf)
-library(tidyverse)
-library(purrr)
-library(RSQLite)
-library(ggthemes)
-library(gtools)
-library(data.table)
-library(patchwork)
+
+library(raster) # version 3.3-13
+library(sf) # version 0.9-5
+library(purrr) # version 0.3.4
+library(tidyverse) # version 1.3.0
+library(RSQLite) # version 2.2.0
+library(data.table) # version 1.13.0
+library(patchwork) # version 1.0.1
+library(ggthemes) # version 4.2.0
+library(gtools) # version 3.8.2
+library(vegetarian) # version 1.2
+
 
 # This script creates the input data for the revision of the manuscript: Mixing tree species at different spatial scales: The buffering
 # effects of alpha, beta and gamma diversity against disturbances under climate change

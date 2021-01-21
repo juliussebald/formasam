@@ -2,9 +2,7 @@
 # The idea is to derive tree dimensions for every age and every ressource unit in the two landscapes from iLand simulation data
 # Further down this script creates the initalization files for iLand and LandClim
 
-library(tidyverse)
-
-
+library(tidyverse) # version 1.3.0
 
 # init files for single species run with iland (structural data) ----------
 

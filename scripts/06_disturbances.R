@@ -1,8 +1,11 @@
-library(tidyverse)
-library(raster)
-library(ggthemes)
 
-# this script creates disturbance probability functions according to Schmidt et al. 2010
+library(raster) # version 3.3-13
+library(tidyverse) # version 1.3
+library(ggthemes) # version 4.2.0
+
+
+
+# This script creates disturbance probability functions according to Schmidt et al. 2010
 # further down the script creates the disturbance sequences for the simulation runa
 
 

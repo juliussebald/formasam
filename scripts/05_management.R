@@ -1,7 +1,8 @@
-library(raster)
-library(sf)
-library(tidyverse)
-library(purrr)
+
+library(raster) # version 3.3-13
+library(sf) # version 0.9-5
+library(tidyverse) # version 1.3.0
+library(purrr) # version 0.3.4
 
 set.seed(42)
 

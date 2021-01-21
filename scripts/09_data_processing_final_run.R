@@ -1,13 +1,15 @@
-### This script analyzes the results of the first FORMASAM test run
+### This script analyzes the results of the final FORMASAM simulations
 
-library(RSQLite)
-library(tidyverse)
-library(data.table)
-library(patchwork)
-library(ggthemes)
-library(gtools)
-library(tictoc)
-library(vegetarian)
+
+library(tidyverse) # version 1.3.0
+library(RSQLite) # version 2.2.0
+library(data.table) # version 1.13.0
+library(patchwork) # version 1.0.1
+library(ggthemes) # version 4.2.0
+library(gtools) # version 3.8.2
+library(vegetarian) # version 1.2
+
+
 
 
 # ILAND -------------------------------------------------------------------

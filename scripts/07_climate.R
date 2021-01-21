@@ -2,9 +2,9 @@
 ### for the final simulations of the FORMASAM study
 ### Additionally this script derives numbers on climate in different scenarios for the mansucript
 
-library(tidyverse)
-library(RSQLite)
-library(raster)
+library(raster) # version 3.3-13
+library(tidyverse) # version 1.3.0
+library(RSQLite) # version 2.2.0
 
 set.seed(42)
 

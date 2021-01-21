@@ -1,9 +1,9 @@
-library(tidyverse)
-library(data.table)
-library(raster)
-library(ggthemes)
-library(patchwork)
 
+library(raster) # version 3.3-13
+library(tidyverse) # version 1.3.0
+library(data.table) # version 1.13.0
+library(patchwork) # version 1.0.1
+library(ggthemes) # version 4.2.0
 
 # define species pools ----------------------------------------------------
 

@@ -7,12 +7,12 @@
 
 # load packages
 
-library(raster)
-library(sf)
-library(tidyverse)
-library(RSQLite)
-library(data.table)
-library(patchwork)
+library(raster) # version 3.3-13
+library(sf) # version 0.9-5
+library(tidyverse) # version 1.3.0
+library(RSQLite) # version 2.2.0
+library(data.table) # version 1.13.0
+library(patchwork) # version 1.0.1
 
 
 

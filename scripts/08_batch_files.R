@@ -1,7 +1,7 @@
 ### This R-script creates a batch file for running the final simulations of the 
 ### FORMASAM study
 
-library(tidyverse)
+library(tidyverse) # version 1.3.0
 
 # create table of all combinations
 
